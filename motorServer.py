@@ -98,12 +98,6 @@ class requestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 			cc.driveBackRight()
 		if s.path == "/sa":
 			cc.stopAll()
-		if s.path == "/sd":
-			cc.cleanupGPIOs()
-			os.system("shutdown -h now")
-		if s.path == "/rb":
-			cc.cleanupGPIOs()
-			os.system("reboot -f now")
 		if s.path == "/lf":
 			cc.stopAll()
 			if requestHandler.distanceStopEnabled:
@@ -123,6 +117,12 @@ class requestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 			if requestHandler.distanceStopEnabled:
 				requestHandler.distanceStopEnabled = False
 				requestHandler.p2.terminate()
+	if s.path == "/sd":
+			cc.cleanupGPIOs()
+			os.system("shutdown -h now")
+	if s.path == "/rb":
+			cc.cleanupGPIOs()
+			os.system("reboot -f now")
 
 if __name__ == '__main__':
     server_class = BaseHTTPServer.HTTPServer
