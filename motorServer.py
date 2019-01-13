@@ -13,11 +13,13 @@ PORT_NUMBER = 80
 GPIO.setmode(GPIO.BOARD)
 GPIO.setup(16, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 GPIO.setup(22, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+GPIO.setup(29, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+
+GPIO.setup(32, GPIO.OUT)
+GPIO.setup(31, GPIO.IN)
 
 GPIO_TRIGGER = 32
 GPIO_ECHO = 31
-GPIO.setup(GPIO_TRIGGER, GPIO.OUT)
-GPIO.setup(GPIO_ECHO, GPIO.IN)
 
 # distance() based on https://tutorials-raspberrypi.com/raspberry-pi-ultrasonic-sensor-hc-sr04/
 def distance():
@@ -34,32 +36,83 @@ def distance():
     distance = (TimeElapsed * 34300) / 2
     return distance
 
-def lineFollower():
-	cc.driveForward()
-	while True:
-		if GPIO.input(16) == GPIO.LOW:
-			cc.driveForwardRight()
-			while True:
-				if GPIO.input(16) == GPIO.HIGH:
-					break
-			cc.driveForward()
-		if GPIO.input(22) == GPIO.LOW:
-			cc.driveForwardLeft()
-			while True:
-				if GPIO.input(22) == GPIO.HIGH:
-					break
-			cc.driveForward()
 
+# |16|22|29|
+def lineFollower():
+	flPWM = GPIO.PWM(15, 60)
+	blPWM = GPIO.PWM(13, 60)
+	brPWM = GPIO.PWM(18, 60)
+	frPWM = GPIO.PWM(11, 60)
+	currentState = 6
+#	flPWM.start(80)
+#	time.sleep(2)
+#	flPWM.stop()
+#	frPWM.start(80)
+#	time.sleep(2)
+#	frPWM.stop()
+#	blPWM.start(80)
+#	time.sleep(2)
+#	blPWM.stop()
+#	brPWM.start(80)
+#	time.sleep(2)
+#	brPWM.stop()
+	while True:
+		if GPIO.input(16) == GPIO.LOW and GPIO.input(22) == GPIO.HIGH and GPIO.input(29) == GPIO.LOW:
+			if currentState != 0:
+                                flPWM.stop()
+                                brPWM.stop()
+                                blPWM.stop()
+                                frPWM.stop()
+				flPWM.start(70)
+				frPWM.start(70)
+				currentState = 0
+		elif GPIO.input(16) == GPIO.HIGH and GPIO.input(22) == GPIO.LOW and GPIO.input(29) == GPIO.LOW:
+			if currentState != 1:
+				flPWM.stop()
+				brPWM.stop()
+				blPWM.stop()
+				frPWM.stop()
+				flPWM.start(70)
+				currentState = 1
+                elif GPIO.input(16) == GPIO.LOW and GPIO.input(22) == GPIO.LOW and GPIO.input(29) == GPIO.HIGH:
+                        if currentState != 2:
+                                flPWM.stop()
+                                brPWM.stop()
+                                blPWM.stop()
+                                frPWM.stop()
+                                frPWM.start(70)
+                                currentState = 2
+                elif GPIO.input(16) == GPIO.HIGH and GPIO.input(22) == GPIO.HIGH and GPIO.input(29) == GPIO.LOW:
+                        if currentState != 3:
+                                flPWM.stop()
+                                brPWM.stop()
+                                blPWM.stop()
+                                frPWM.stop()
+                                flPWM.start(70)
+				brPWM.start(70)
+                                currentState = 3
+                elif GPIO.input(16) == GPIO.LOW and GPIO.input(22) == GPIO.HIGH and GPIO.input(29) == GPIO.HIGH:
+                        if currentState != 4:
+                                flPWM.stop()
+                                brPWM.stop()
+                                blPWM.stop()
+                                frPWM.stop()
+                                frPWM.start(70)
+				blPWM.start(70)
+                                currentState = 4
+		else:
+			currentState = 5
+			cc.stopAll()
 
 def distanceStop():
 	alreadyStopped = False
 	while True:
 		dist = distance()
-		if dist < 25:
+		if dist < 22:
 			if alreadyStopped == False:
 				cc.stopAll()
 				alreadyStopped = True
-		elif dist > 30:
+		elif dist > 28:
 			alreadyStopped = False
 		time.sleep(0.15)
 
@@ -68,17 +121,24 @@ class requestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     distanceStopEnabled = False
     def do_HEAD(s):
         s.send_response(200)
-#        s.send_header("Content-type", "text/html")
+        s.send_header("Content-type", "text/html")
         s.end_headers()
     def do_GET(s):
         s.send_response(200)
-#        s.send_header("Content-type", "text/html")
+        s.send_header("Content-type", "text/html")
         s.end_headers()
 	if requestHandler.lineFollowerEnabled:
 		if s.path == "/mc":
 			requestHandler.lineFollowerEnabled = False
 			requestHandler.p.terminate()
+			cc.cleanupGPIOs()
+			cc.setupGPIOs()
 			cc.stopAll()
+			GPIO.setup(16, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+			GPIO.setup(22, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+			GPIO.setup(29, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+			GPIO.setup(32, GPIO.OUT)
+			GPIO.setup(31, GPIO.IN)
 	else:
 		if s.path == "/fw":
 			cc.driveForward()
@@ -134,3 +194,4 @@ if __name__ == '__main__':
     httpd.server_close()
     print "interrupted"
     cc.cleanupGPIOs()
+
